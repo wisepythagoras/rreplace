@@ -12,11 +12,12 @@ struct Arguments {
 	target: String,
 	replacement: String,
 	text: String,
+	output_file: String,
 }
 
 fn print_usage() {
 	eprintln!("{} - Change occurences of a string in a file to another",
-	          "rreplace".bold());
+			  "rreplace".bold());
 	eprintln!("Usage: rreplace <target> <replacement> <INPUT> <OUTPUT>");
 	eprintln!("Usage: cat INPUT | rreplace <target> <replacement> > OUTPUT");
 }
@@ -30,7 +31,7 @@ fn parse_args() -> Arguments {
 		process::exit(1);
 	}
 
-	if args.len() != 3 {
+	if args.len() != 4 {
 		let lines = io::stdin().lines();
 		for line in lines {
 			let line_text = line.unwrap();
@@ -39,21 +40,21 @@ fn parse_args() -> Arguments {
 	} else {
 		let filename = args[2].clone();
 
-	    file_lines = match fs::read_to_string(&filename) {
-	    	Ok(v) => v,
-	    	Err(e) => {
-	    		eprintln!("{}: Failed to read from file '{}': {}",
-	    		          "Error".red().bold(), filename,
-	    		          e.kind().to_string().red().bold());
-	    		process::exit(1);
-	    	}
-	    };
+		file_lines = match fs::read_to_string(&filename) {
+			Ok(v) => v,
+			Err(e) => {
+				eprintln!("{}: Failed to read from file '{}': {}",
+						  "Error".red().bold(), filename,
+						  e.kind().to_string().red().bold());
+				process::exit(1);
+			}
+		};
 	}
 
 	if args.len() != 4 && file_lines.is_empty() {
 		print_usage();
 		eprintln!("{}: Wrong number of arguments: Expected 4, got {}.",
-		          "Error".red().bold(), args.len());
+				  "Error".red().bold(), args.len());
 		process::exit(1);
 	}
 
@@ -61,6 +62,7 @@ fn parse_args() -> Arguments {
 		target: args[0].clone(),
 		replacement: args[1].clone(),
 		text: file_lines,
+		output_file: if args.len() < 4 { "".to_string() } else { args[3].clone() },
 	}
 }
 
@@ -72,16 +74,28 @@ fn replace(target: &str, replacement: &str, text: &str)
 }
 
 fn main() {
-    let args = parse_args();
+	let args = parse_args();
 
-    let replaced_data = match replace(&args.target, &args.replacement, &args.text) {
-    	Ok(v) => v,
-    	Err(e) => {
-    		eprintln!("{}: Failed to perform replace: {:?}",
-    		          "Error".red().bold(), e);
-    		process::exit(1);
-    	}
-    };
+	let replaced_data = match replace(&args.target, &args.replacement, &args.text) {
+		Ok(v) => v,
+		Err(e) => {
+			eprintln!("{}: Failed to perform replace: {:?}",
+					  "Error".red().bold(), e);
+			process::exit(1);
+		}
+	};
 
-    eprintln!("{}", replaced_data);
+	if args.output_file.len() == 0 {
+		eprintln!("{}", replaced_data);
+	} else {
+		match fs::write(&args.output_file, replaced_data) {
+			Ok(_) => {},
+			Err(e) => {
+				eprintln!("{}: Failed to create file '{}': {}",
+						  "Error".red().bold(), &args.output_file,
+						  e.kind().to_string().red().bold());
+				process::exit(1);
+			}
+		};
+	}
 }
